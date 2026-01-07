@@ -11,6 +11,7 @@ interface LocalState {
 }
 
 class FileUploadManager {// 1. A private static instance of the class
+    private activeController: AbortController | null = null;
     private uploadId: string | null;
     private static db: LocalDBHelper;
     private state: UploadStatus;
@@ -60,6 +61,7 @@ class FileUploadManager {// 1. A private static instance of the class
             if(!uploadId) {
                 throw new Error('Upload ID not returned');
             }
+            this.activeController = new AbortController();
             this.uploadId = uploadId;
             const uploadObj = {
                 uploadId,
@@ -89,7 +91,7 @@ class FileUploadManager {// 1. A private static instance of the class
                 const end = partNumber * CHUNK_SIZE;
                 const chunk = this.file.slice(start, end);
                 // Get signed URL
-                const res = await uploadFilePart(uploadId, chunk, partNumber, fileName);
+                const res = await uploadFilePart(uploadId, chunk, partNumber, fileName, this.activeController.signal);
                 parts.push(res);
                 // Update DB with progress
                 await FileUploadManager.db.save('uploads', {
@@ -115,6 +117,8 @@ class FileUploadManager {// 1. A private static instance of the class
         }catch(error) {
             Logger.error('FileUploadManager::error', error);
             throw error;
+        }finally {
+            this.activeController = null;
         }
     }
 
@@ -141,7 +145,12 @@ class FileUploadManager {// 1. A private static instance of the class
         if (!uploadRecord) {
             throw new Error('No upload record found to resume');
         }
+        uploadRecord['status'] = 'paused';
+        await FileUploadManager.db.save('uploads', uploadRecord);
         this.state = 'paused';
+        if(this.activeController) {
+            this.activeController.abort();
+        }
     }
 
     async resume() {
@@ -168,11 +177,6 @@ class FileUploadManager {// 1. A private static instance of the class
             }
             if(this.getState() === 'paused') {
                 Logger.log('Upload paused');
-                await FileUploadManager.db.save('uploads', {
-                    ...uploadRecord,
-                    chunksUploaded: parts,
-                    status: 'paused'
-                });
                 return;
             }
             const start = (partNumber - 1) * CHUNK_SIZE;
@@ -209,6 +213,9 @@ class FileUploadManager {// 1. A private static instance of the class
             throw new Error('No upload record found to abort');
         }
         uploadRecord['status'] = 'aborted';
+        if(this.activeController){
+            this.activeController.abort();
+        }
         await abortMultipartUpload(uploadRecord);
         this.state = 'aborted';
     }

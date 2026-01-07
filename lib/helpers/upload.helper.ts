@@ -26,11 +26,7 @@ export async function initialiseMultipartUpload(fileName: string, contentType: s
     }
 }
 
-export async function uploadFile(uploadId:string, file: any) {
-
-}
-
-export async function uploadFilePart(uploadId: string, chunk: any, partNumber: number, key: string) {
+export async function uploadFilePart(uploadId: string, chunk: any, partNumber: number, key: string, signal: any = null) {
     try {
         const res = await fetch('/api/upload/part-url', {
             method: 'POST',
@@ -38,8 +34,9 @@ export async function uploadFilePart(uploadId: string, chunk: any, partNumber: n
             body: JSON.stringify({
                 uploadId,
                 partNumber,
-                key,
-            })
+                key
+            }),
+            signal
         });
 
         if(!res.ok) {

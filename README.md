@@ -2,7 +2,11 @@
 
 The purpose of this app is to demonstrate multipart upload following industry best practices.
 
-It takes care of real life scenarios like loss of connectivity, closing browser etc.
+The Multi-part Ulpload App has the following features
+- Upload large files securely to S3 storage in chunks
+- Upload multiple files at a time
+- Pause and Resume file uploads
+- Pause file uploads on Network drop and resume on network restoraion.
  
 ## Architecture Diagram
                 Browser (Client)
