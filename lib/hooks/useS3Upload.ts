@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUploadStore } from '@/lib/store';
 import FileUploadManager from '@/lib/FileUploadManager';
@@ -27,10 +29,21 @@ export const useS3Upload = () => {
             }
             
         },
-        onSuccess: () => {
+        onSuccess: (data: any, variables) => {
             Logger.log('useS3Upload:useMutation::onSuccess');
-            // Refresh the right-hand list once a file moves to the remote DB
+            // 1. Refresh the right-hand list once a file moves to the remote DB
             queryClient.invalidateQueries({ queryKey: ['remote-files'] });
+            // 2. IMPORTANT: Remove this specific mutation from the cache
+            // This makes it disappear from useMutationState immediately
+            queryClient.getMutationCache().findAll({ mutationKey: ['upload-s3'] })
+                .forEach((mutation) => {
+                // If the ID matches the one we just finished, remove it
+                if ((mutation.state.variables as any)?.file?.name === variables?.file?.name) {
+                    queryClient.getMutationCache().remove(mutation);
+                }
+                });
+
+            Logger.info('CLEANUP_COMPLETE', variables?.file?.name);
         },
         onError: (error, variables) => {
         // Logic only runs if mutationFn throws

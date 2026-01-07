@@ -4,7 +4,7 @@ The purpose of this app is to demonstrate multipart upload following industry be
 
 It takes care of real life scenarios like loss of connectivity, closing browser etc.
  
-## Architecture
+## Architecture Diagram
                 Browser (Client)
                 │
                 │ 1️⃣ POST /initiate
