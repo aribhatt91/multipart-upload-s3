@@ -53,7 +53,7 @@ function UploadWrapper() {
             <DropFileInput onFileChange={handleFileUpload} />
         </div>
         <div className='flex-1 p-6 max-h-96'>
-            <div className='w-full flex justify-between'><h3 className='text-xl'>Files</h3><button className='bg-white py-1 px-2 outline-none text-blue-500 hover:bg-gray-200 duration-150 transition-all focus:outline-none border-0 rounded-b-sm text-sm'>Refresh</button></div>
+            <div className='w-full flex justify-between'><h3 className='text-xl'>Files</h3><button className='bg-white py-1 px-2 outline-none text-blue-500 hover:bg-gray-200 duration-150 transition-all focus:outline-none border-0 rounded-b-sm text-sm' onClick={async () => await refetch()}>Refresh</button></div>
             <div className='w-full overflow-auto'>
                 <FileList isLoading={isLoading} remoteFiles={remoteFiles} />
             </div>

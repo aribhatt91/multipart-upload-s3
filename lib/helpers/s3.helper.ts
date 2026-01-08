@@ -5,7 +5,8 @@ import {
     CreateMultipartUploadCommand,
     AbortMultipartUploadCommand,  
     CompleteMultipartUploadCommand,
-    ListPartsCommand
+    ListPartsCommand,
+    DeleteObjectCommand
 } from '@aws-sdk/client-s3';
 
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -106,5 +107,28 @@ export async function getUploadStatus({
       throw error;
     }
   } */
+}
+/**
+ * Deletes a file from S3.
+ * @param bucketName - The name of the S3 bucket.
+ * @param key - The 'path' or Key of the file in the bucket.
+ */
+export async function removeFile(bucketName: string, key: string): Promise<void> {
+  try {
+    const command = new DeleteObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    });
+
+    // NOTE: S3 DeleteObject is 'idempotent'. 
+    // If the file doesn't exist, it still returns 204 (Success).
+    await s3.send(command);
+    
+    Logger.log(`S3: successfully deleted ${key}`);
+  } catch (error) {
+    // In production, log to a service like Sentry/Datadog
+    Logger.error("S3_DELETE_ERROR:", error);
+    throw new Error(`Failed to delete file from S3: ${key}`);
+  }
 }
 

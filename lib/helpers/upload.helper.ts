@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { UploadStatus, IFile } from "../types";
+//import { UploadStatus, IFile } from "../types";
 import Logger from "../logger";
 
 export async function initialiseMultipartUpload(fileName: string, contentType: string) {
@@ -21,7 +21,7 @@ export async function initialiseMultipartUpload(fileName: string, contentType: s
         Logger.log('initialiseMultipartUpload::res', res);
         return uploadId;
     } catch (error) {
-        Logger.error('initialiseMultipartUpload::error', error);
+        Logger.error('upload.helper:initialiseMultipartUpload::error', error);
         throw error;
     }
 }
@@ -66,7 +66,7 @@ export async function uploadFilePart(uploadId: string, chunk: any, partNumber: n
         };
         return part;
     } catch (error) {
-        console.error(`Error uploading part ${partNumber}:`, error);
+        console.error(`upload.helper:uploadFilePart::error:${partNumber}:`, error);
         throw error;
     }
 }
@@ -82,7 +82,7 @@ export async function abortMultipartUpload(uploadObj: any) {
         });
         return res.json();
     }catch(error) {
-        console.error('error completing upload', error);
+        console.error('upload.helper:abortMultipartUpload::error', error);
         throw error;
     }
 }
@@ -99,7 +99,7 @@ export async function completeMultipartUpload(uploadObject: any) {
         }
         return res.json();
     }catch(error) {
-        console.error('error completing upload', error);
+        console.error('upload.helper:completeMultipartUpload::error', error);
         throw error;
     }
     
@@ -113,8 +113,25 @@ export const fetchUploadedFiles = async () => {
         throw new Error(errorData.message || `Error ${response.status}: Failed to fetch files`);
     }
     response = await response.json();
-    Logger.log('fetchUploadedFiles::response', response?.data);
+    Logger.log('upload.helper:fetchUploadedFiles::response', response?.data);
     return response?.data;
 };
 
 
+export async function deleteFile(fileRecord: any) {
+    try {
+        const res = await fetch('/api/upload/remove', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fileRecord),
+        });
+        if(!res.ok) {
+            throw new Error(res.statusText);
+        }
+        return res.json();
+    }catch(error) {
+        console.error('upload.helper:deleteFile::error', error);
+        throw error;
+    }
+    
+}

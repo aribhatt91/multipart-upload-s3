@@ -2,15 +2,16 @@
 import 'server-only';
 import { 
     DynamoDBClient,
-    CreateTableCommand, 
+    CreateTableCommand,
     //ListTablesCommand 
  } from '@aws-sdk/client-dynamodb';
 import { 
+    DeleteCommand,
     DynamoDBDocumentClient,
     PutCommand,
+    QueryCommand,
     /* GetCommand,
-    UpdateCommand,
-    DeleteCommand, */
+    UpdateCommand,*/
     ScanCommand
  } from '@aws-sdk/lib-dynamodb';
 import Logger from '@/lib/logger';
@@ -84,4 +85,71 @@ export async function getAllDocuments(tableName: string, options: any = {}) {
   } while (lastEvaluatedKey);
 
   return items;
+}
+
+/**
+ * Deletes a file record by its fileName using a GSI.
+ * @param tableName - The DynamoDB table name.
+ * @param fileName - The specific filename attribute to search for.
+ */
+export async function deleteDocumentsByFileName(tableName: string, fileName: string): Promise<void> {
+  try {
+    // 1. Find the item ID using the fileName index
+    // Note: 'fileName-index' must be created in your AWS Console first
+    const findCommand = new QueryCommand({
+      TableName: tableName,
+      IndexName: "fileName-index", 
+      KeyConditionExpression: "fileName = :fn",
+      ExpressionAttributeValues: {
+        ":fn": fileName,
+      },
+    });
+
+    const { Items } = await docClient.send(findCommand);
+
+    if (!Items || Items.length === 0) {
+      console.warn(`No record found with fileName: ${fileName}`);
+      return;
+    }
+
+    // 2. Iterate and delete found records by their Primary Key (id)
+    // Production note: If many files share one name, use Promise.all or BatchWrite
+    for (const item of Items) {
+      const deleteCommand = new DeleteCommand({
+        TableName: tableName,
+        Key: {
+          id: item.id, // Primary Key lookup
+        },
+      });
+
+      await docClient.send(deleteCommand);
+      console.log(`Successfully deleted record ID: ${item.id} (File: ${fileName})`);
+    }
+
+  } catch (error) {
+    console.error("DYNAMODB_ATTRIBUTE_DELETE_ERROR:", error);
+    throw new Error(`Failed to delete record with fileName: ${fileName}`);
+  }
+}
+
+/**
+ * Deletes a file record from DynamoDB.
+ * @param tableName - The DynamoDB table name.
+ * @param fileId - The Primary Key (Hash Key) of the record.
+ */
+export async function deleteDocumentById(tableName: string, uploadId: string): Promise<void> {
+  try {
+    const command = new DeleteCommand({
+      TableName: tableName,
+      Key: {
+        uploadId, // Ensure this matches your Table Schema Primary Key
+      },
+    });
+
+    await docClient.send(command);
+    console.log(`DynamoDB: successfully deleted record ${uploadId}`);
+  } catch (error) {
+    console.error("DYNAMODB_DELETE_ERROR:", error);
+    throw new Error(`Failed to delete record from DB: ${uploadId}`);
+  }
 }
