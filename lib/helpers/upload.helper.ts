@@ -66,7 +66,7 @@ export async function uploadFilePart(uploadId: string, chunk: any, partNumber: n
         };
         return part;
     } catch (error) {
-        console.error(`upload.helper:uploadFilePart::error:${partNumber}:`, error);
+        Logger.error(`upload.helper:uploadFilePart::error:${partNumber}:`, error);
         throw error;
     }
 }
@@ -82,7 +82,7 @@ export async function abortMultipartUpload(uploadObj: any) {
         });
         return res.json();
     }catch(error) {
-        console.error('upload.helper:abortMultipartUpload::error', error);
+        Logger.error('upload.helper:abortMultipartUpload::error', error);
         throw error;
     }
 }
@@ -99,7 +99,7 @@ export async function completeMultipartUpload(uploadObject: any) {
         }
         return res.json();
     }catch(error) {
-        console.error('upload.helper:completeMultipartUpload::error', error);
+        Logger.error('upload.helper:completeMultipartUpload::error', error);
         throw error;
     }
     
@@ -130,8 +130,7 @@ export async function deleteFile(fileRecord: any) {
         }
         return res.json();
     }catch(error) {
-        console.error('upload.helper:deleteFile::error', error);
+        Logger.error('upload.helper:deleteFile::error', error);
         throw error;
     }
-    
 }

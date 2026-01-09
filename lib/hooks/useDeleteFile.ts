@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import Logger from '../logger';
 
 export const useDeleteFile = () => {
   const queryClient = useQueryClient();
@@ -15,17 +16,16 @@ export const useDeleteFile = () => {
       return response.json();
     },
 
-    // 2. The "Magic" Step: Refreshing the list
+    // Refreshing the list
     onSuccess: () => {
       // This tells TanStack Query: "The 'remote-files' data is old. Fetch it again!"
       queryClient.invalidateQueries({ queryKey: ['remote-files'] });
-      
       // Optional: Show a success toast
-      console.log("File deleted and list refreshed");
+      Logger.log("File deleted and list refreshed");
     },
 
     onError: (err) => {
-      console.error("Delete failed:", err.message);
+      Logger.error("Delete failed:", err.message);
     }
   });
 };

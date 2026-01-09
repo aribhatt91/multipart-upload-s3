@@ -65,18 +65,21 @@ const FileItem = ({ fileItem }: { fileItem: any }) => {
   </div>
 }
 
-const ActiveFileItem = ({activeFileItem, manager, progressMap}: {activeFileItem: any, manager: any, progressMap: any }) => {
+const ActiveFileItem = ({ activeFileItem }: { activeFileItem: any }) => {
+  const managers = useUploadStore((s) => s.managers);
+  const progressMap = useUploadStore((s) => s.progress);
+  const manager = managers[activeFileItem.fileName];
   const pause = manager?.pause,
   resume = manager?.resume,
   state = manager?.getState();
-  Logger.log('ActiveFileItem::', activeFileItem, state);
+  //Logger.log('ActiveFileItem::', activeFileItem, manager, state);
   return (
     <div key={activeFileItem.fileName} className="file-list__item shadow">
       <div className="flex items-center gap-4">
         <ProgressCircle percentage={progressMap[activeFileItem.fileName] || 0} />
         <div className='flex flex-col flex-1'>
           <div className="text-sm font-bold text-gray-500 text-ellipsis">{activeFileItem.fileName}</div>
-          <div className="text-xs text-blue-500 capitalize">{activeFileItem.status}</div>
+          <div className="text-xs text-blue-500 capitalize">{state}</div>
         </div>
       </div>
       
@@ -90,16 +93,13 @@ const ActiveFileItem = ({activeFileItem, manager, progressMap}: {activeFileItem:
             }
           }}
           className="px-3 py-1 text-xs bg-gray-100 rounded hover:bg-gray-200"
-        > {status === 'paused' ? 'Resume' : 'Pause'} </button>
+        > {state === 'paused' ? 'Resume' : 'Pause'} </button>
       </div>
     </div>
   )
 }
 
 function FileList({ isLoading, remoteFiles }: { isLoading: boolean, remoteFiles: IFile[] }) {
-  const progressMap = useUploadStore((s) => s.progress);
-  const managers = useUploadStore((s) => s.managers);
-
   const activeUploads = useMutationState({
     filters: { mutationKey: ['upload-s3'] },
     select: (mutation) => ({
@@ -116,9 +116,7 @@ function FileList({ isLoading, remoteFiles }: { isLoading: boolean, remoteFiles:
         activeUploads.map((upload) => (
           <ActiveFileItem 
             key={upload.fileName}
-            activeFileItem={upload} 
-            manager={managers[upload.fileName]}
-            progressMap={progressMap}
+            activeFileItem={upload}
           />
         ))
       }

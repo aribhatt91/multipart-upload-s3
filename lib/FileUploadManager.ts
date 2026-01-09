@@ -18,6 +18,7 @@ class FileUploadManager {// 1. A private static instance of the class
     private file: File;
     private progressFunction: (fileName: string, progress: number) => void;
     private chunkSize: number;
+    private isPaused: boolean;
     
 
     constructor(file: File, progressFunction: (fileName: string, progress: number) => void, chunkSize: number = 5) {
@@ -29,13 +30,18 @@ class FileUploadManager {// 1. A private static instance of the class
         this.state = 'initialized';
         this.uploadId = null;
         this.chunkSize = chunkSize || 5;
+        this.isPaused = false;
     }
 
-    getState() {
+    getState = () => {    
         return this.state;
     }
 
-    async upload() {
+    /* getFile = () => {
+        return this.file;
+    } */
+
+    upload = async () => {
         try {
             Logger.log('FileUploadManager::Starting Upload', this.file.name, this.file.size);
             const CHUNK_SIZE = this.chunkSize * 1024 * 1024
@@ -74,6 +80,7 @@ class FileUploadManager {// 1. A private static instance of the class
                 status: 'initialized'
             }
             await FileUploadManager.db.save('uploads', uploadObj);
+            this.isPaused = false;
 
             // Upload in parts
             for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
@@ -88,19 +95,19 @@ class FileUploadManager {// 1. A private static instance of the class
                 // Get signed URL
                 const res = await uploadFilePart(uploadId, chunk, partNumber, fileName, this.activeController.signal);
                 parts.push(res);
+                this.state = this.isPaused ? 'paused' : parts.length === totalParts ? 'completed' : 'uploading';
                 // Update DB with progress
                 await FileUploadManager.db.save('uploads', {
                     ...uploadObj,
                     chunksUploaded: parts,
-                    status: partNumber === totalParts ? 'completed' : 'uploading'
+                    status: this.state
                 });
-                this.state = parts.length === totalParts ? 'completed' : 'uploading';
                 Logger.log('FileUploadManager:upload::finished uploading part:', partNumber);
                 if(this.state === 'completed') {
                     const complted = this.complete({
                         ...uploadObj,
                         chunksUploaded: parts,
-                        tatus: 'completed'
+                        status: 'completed'
                     });
                     this.progressFunction(this.file.name, 100);
                     return complted;
@@ -117,7 +124,7 @@ class FileUploadManager {// 1. A private static instance of the class
         }
     }
 
-    private async complete(uploadRecord: any) {
+    private complete = async (uploadRecord: any) => {
         try {
             uploadRecord['status'] = 'completed';
             uploadRecord['uploadFinished'] = Date.now();
@@ -134,7 +141,8 @@ class FileUploadManager {// 1. A private static instance of the class
         }
 
     }
-    async pause() {
+    pause = async () => {
+        const file = this?.file || null;
         try {
             const uploadRecord = await FileUploadManager.db.get('uploads', this.uploadId || "");
             if (!uploadRecord) {
@@ -143,18 +151,21 @@ class FileUploadManager {// 1. A private static instance of the class
             uploadRecord['status'] = 'paused';
             await FileUploadManager.db.save('uploads', uploadRecord);
             this.state = 'paused';
+            this.isPaused = true;
+            Logger.log('FileUploadManager:pause:this', this.state);
             if(this.activeController) {
                 this.activeController.abort(this.state);
             }
+            Logger.log('FileUploadManager:pause:this', this, this.state);
         }catch(error) {
-            Logger.error(`FileUploadManager:pause:${this.file?.name}:error::`, error);
+            Logger.error(`FileUploadManager:pause:${file?.name || 'no-file'}:error::`, error);
             throw error;
         }
     }
 
-    async resume() {
+    resume = async () => {
         try {
-            
+            Logger.log('FileUploadManager:resume::uploadId', this.uploadId);
             const uploadId = this.uploadId || "";
             const uploadRecord = await FileUploadManager.db.get('uploads', uploadId);
             if (!uploadRecord) {
@@ -168,17 +179,19 @@ class FileUploadManager {// 1. A private static instance of the class
             if(!this.file || this.file.name !== fileName) {
                 throw new Error('File mismatch on resume');
             }
+            this.isPaused = false;
             this.activeController = this.activeController || new AbortController();
             this.state = 'uploading';
             const parts = chunksUploaded || [];
-
+            Logger.log(`FileUploadManager:resume::uploadRecord`, uploadRecord);
             // Upload in parts
             for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
                 if(!parts.find((p: any) => p.PartNumber === partNumber)) {
+                    Logger.log(`FileUploadManager:resume::skipping part`, partNumber);
                     continue; // Skip already uploaded parts
                 }
-                if(this.getState() === 'paused') {
-                    Logger.log('Upload paused');
+                if(this.getState() === 'paused' || this.isPaused) {
+                    Logger.log('FileUploadManager:resume::Upload paused');
                     return;
                 }
                 const start = (partNumber - 1) * CHUNK_SIZE;
@@ -187,19 +200,20 @@ class FileUploadManager {// 1. A private static instance of the class
                 // Get signed URL
                 const res = await uploadFilePart(uploadId, chunk, partNumber, fileName, this.activeController.signal);
                 parts.push(res);
+                this.state = this.isPaused ? 'paused' : parts.length === totalParts ? 'completed' : 'uploading';
+                Logger.log('FileUploadManager:resume::', this.file, this.state);
                 // Update DB with progress
                 await FileUploadManager.db.save('uploads', {
                     ...uploadRecord,
                     chunksUploaded: parts,
-                    status: partNumber === totalParts ? 'completed' : 'uploading'
+                    status: this.state
                 });
-                this.state = parts.length === totalParts ? 'completed' : 'uploading';
-                
+                Logger.log('FileUploadManager:resume::finished uploading part:', partNumber);
                 if(this.state === 'completed') {
                     const complted = this.complete({
                         ...uploadRecord,
                         chunksUploaded: parts,
-                        tatus: 'completed'
+                        status: 'completed'
                     });
                     this.progressFunction(this.file.name, 100);
                     return complted;
@@ -215,7 +229,7 @@ class FileUploadManager {// 1. A private static instance of the class
         }
     }
 
-    async abort() {
+    abort = async () => {
         try {
             const uploadRecord = await FileUploadManager.db.get('uploads', this.uploadId || "");
             if (!uploadRecord) {

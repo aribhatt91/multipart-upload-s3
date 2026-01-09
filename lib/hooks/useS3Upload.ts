@@ -22,14 +22,24 @@ export const useS3Upload = () => {
                 Logger.log('useS3Upload:useMutation::', file.name, manager);
                 const res = await manager.upload();
                 Logger.log('useS3Upload:useMutation::result', res);
+                if(!res && manager.getState() === 'paused') {
+                    return {_isPaused: true};
+                }
                 return res;
-            }catch(error) {
+            }catch(error: any) {
+                if(error?.name === 'AbortError' ||error?.message === 'paused') {
+                    return {_isPaused: true};
+                }
                 Logger.error('useS3Upload:useMutation::error', error);
                 throw error;
             }
             
         },
         onSuccess: (data: any, variables) => {
+            if(data?._isPaused){
+                Logger.log('useS3Upload:useMutation::onSuccess:paused');
+                return;
+            }
             Logger.log('useS3Upload:useMutation::onSuccess');
             // 1. Refresh the right-hand list once a file moves to the remote DB
             queryClient.invalidateQueries({ queryKey: ['remote-files'] });
